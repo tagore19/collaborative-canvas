@@ -3,10 +3,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const canvasEl = document.getElementById('draw-canvas');
   const app = new CanvasApp(canvasEl);
 
-  // wire toolbar
+  // toolbar elements
   const colorInput = document.getElementById('color');
   const sizeInput = document.getElementById('size');
   const erBtn = document.getElementById('eraser');
+  const undoBtn = document.getElementById('undo');
+  const redoBtn = document.getElementById('redo');
+  const clearBtn = document.getElementById('clear');
+
   colorInput.addEventListener('input', (e) => app.setColor(e.target.value));
   sizeInput.addEventListener('input', (e) => app.setSize(e.target.value));
 
@@ -15,17 +19,15 @@ document.addEventListener('DOMContentLoaded', () => {
     erBtn.textContent = app.eraserMode ? 'Brush' : 'Eraser';
   });
 
-  // Global undo/redo: send to server (websocket.js exposes sendGlobalUndo/sendGlobalRedo)
-  document.getElementById('undo').addEventListener('click', () => {
+  undoBtn.addEventListener('click', () => {
     if (typeof window.sendGlobalUndo === 'function') {
       window.sendGlobalUndo();
     } else {
-      // fallback to local undo if websocket not yet bound
       app.undo();
     }
   });
 
-  document.getElementById('redo').addEventListener('click', () => {
+  redoBtn.addEventListener('click', () => {
     if (typeof window.sendGlobalRedo === 'function') {
       window.sendGlobalRedo();
     } else {
@@ -33,9 +35,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  document.getElementById('clear').addEventListener('click', () => {
-    // clear local and also (optionally) inform server - for now local clear only
+  clearBtn.addEventListener('click', () => {
+    // local immediate clear for snappy UX
     app.clear();
+    // inform server to clear for everyone (sendGlobalClear is provided by websocket.js)
+    if (typeof window.sendGlobalClear === 'function') {
+      window.sendGlobalClear();
+    }
+    // also clear local op mirror if present
+    if (window.__OPS) window.__OPS = [];
   });
 
   // expose for debug and websocket binding
