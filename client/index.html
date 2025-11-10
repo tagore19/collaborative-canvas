@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Collaborative Canvas</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="toolbar">
+    <label>Color: <input id="color" type="color" value="#b71c1c"></label>
+    <label>Size: <input id="size" type="range" min="1" max="40" value="8"></label>
+    <button id="eraser">Brush</button>
+    <button id="undo">Undo</button>
+    <button id="redo">Redo</button>
+    <button id="clear">Clear</button>
+
+    <!-- USER LIST: shows who's online with their assigned color -->
+    <div id="user-list" aria-live="polite" title="Online users"></div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="draw-canvas"></canvas>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="canvas.js"></script>
+  <script src="websocket.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

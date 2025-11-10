@@ -1,0 +1,41 @@
+html,body { height:100%; margin:0; font-family: Arial, sans-serif; }
+#toolbar {
+  display:flex; gap:12px; align-items:center; padding:8px; background:#f3f3f3;
+  box-shadow:0 1px 3px rgba(0,0,0,0.08);
+}
+#canvas-wrap { height: calc(100% - 56px); display:flex; position: relative; }
+#draw-canvas { flex:1; background: #fff; display:block; width:100%; height:100%; touch-action: none; }
+button { padding:6px 10px; }
+
+/* user list styles */
+#user-list {
+  margin-left: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow: auto;
+  padding: 4px 6px;
+  border-left: 1px solid rgba(0,0,0,0.06);
+  height: 36px;
+}
+.user-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.user-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+.user-me {
+  font-weight: 700;
+}
