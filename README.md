@@ -8,13 +8,23 @@ Multiple users can draw simultaneously, see each other's strokes in real time, u
 ## 🚀 Features
 
 ✅ Real-time synchronized drawing across users  
+✅ Global Clear (clears everyone's canvas)  
+✅ Global Undo/Redo (per-user LIFO)  
 ✅ Live cursor indicators showing other users' positions  
 ✅ Brush, color picker, and eraser tool  
 ✅ Adjustable stroke width  
-✅ Global undo/redo (per-user LIFO)  
 ✅ Users assigned unique colors  
 ✅ New users instantly see the full current canvas  
-✅ Simple UI — no frameworks or drawing libraries
+✅ Simple UI — no frameworks or drawing libraries  
+✅ Auto-reset canvas on first user join (fresh session)
+
+---
+
+## 🎨 Live Collaboration Example
+
+The screenshot below shows **two users drawing simultaneously** on the same canvas with **real-time synchronization**:
+
+![Collaborative Canvas Demo](./assets/collaborative-demo.png)
 
 ---
 
@@ -30,6 +40,8 @@ collaborative-canvas/
 │   └── main.js
 ├── server/
 │   └── server.js
+├── assets/
+│   └── collaborative-demo.png
 ├── package.json
 ├── README.md
 └── ARCHITECTURE.md
@@ -39,9 +51,9 @@ collaborative-canvas/
 
 ## ⚙️ Setup Instructions
 
-### 1. Clone or download this repository
+### 1. Clone the repository
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/tagore19/collaborative-canvas.git
 cd collaborative-canvas
 ```
 
@@ -50,98 +62,50 @@ cd collaborative-canvas
 npm install
 ```
 
-### 3. Run the server
-For development:
+### 3. Run locally
 ```bash
 npm run dev
 ```
-
-Or for normal mode:
-```bash
-npm start
-```
-
-### 4. Open the app
-Open your browser and go to:
+Then open your browser and visit:
 ```
 http://localhost:3000
 ```
 
-You should see a **Collaborative Canvas Test Page**.  
-Draw on it — open multiple tabs or browsers to see the live sync.
+---
+
+## 🌐 Live Demo
+
+Deployed on **Render**:  
+👉 [https://collaborative-canvas-l5jt.onrender.com](https://collaborative-canvas-l5jt.onrender.com)
 
 ---
 
 ## 🧪 How to Test Multi-user Collaboration
 
-1. Open `http://localhost:3000` in two browser windows.  
-2. Draw on one tab — strokes appear instantly on the other.  
-3. Click **Undo** — removes your last stroke on both tabs.  
-4. Click **Redo** — restores your stroke globally.  
-5. Each user gets a random color assigned automatically.  
-6. Cursor dots show where other users are drawing.  
-7. Use **Eraser** to delete parts of the canvas.
-
----
-
-## 🧰 WebSocket Events Overview
-
-| Direction | Event | Description |
-|------------|--------|-------------|
-| C → S | `stroke` | Send stroke segment(s) or final stroke with `{points, meta, strokeId, isFinal}` |
-| C → S | `undo` / `redo` | Request global undo/redo for user |
-| C → S | `cursor` | Send cursor position `{x, y}` (normalized 0–1) |
-| S → C | `welcome` | Initial data with user id, color, and existing strokes |
-| S → C | `op_add` | Add finalized stroke from any user |
-| S → C | `op_undo` / `op_redo` | Update global operation state |
-| S → C | `cursor` | Broadcast cursor updates to others |
-| S → C | `op_seg` | Transient preview (live drawing) updates |
+1. Open the live URL or `http://localhost:3000` in two tabs.  
+2. Draw in one — strokes appear instantly in the other.  
+3. Click **Clear** in one tab — both canvases clear immediately.  
+4. Use **Undo/Redo** to revert your strokes globally.  
+5. Move your cursor — see others' cursors in real time.  
+6. Each user is assigned a distinct color and name in the toolbar.
 
 ---
 
 ## ⚖️ Known Limitations
 
-- **Canvas resets** if server restarts (data in memory only).  
-- **Per-user undo only** — users can’t undo others’ strokes.  
-- **No authentication** (user = socket id).  
-- **Replay cost**: undo/redo clears and redraws all strokes.  
-- **No rate-limiting** for excessive strokes (could add later).  
-- **Clear button is local only** — does not broadcast a global clear.
+- Canvas resets when first user connects (session start).  
+- Undo/Redo are per-user, not cross-user.  
+- In-memory storage only (no database persistence).  
+- No authentication (identifies users by socket ID).  
+- Replay clears and redraws all strokes (O(n) cost).
 
 ---
 
-## ⏱️ Development Time
+## 🧠 Tech Stack
 
-Approx. **10 hours** total  
-(Including coding, debugging real-time sync, and undo/redo logic)
-
----
-
-## 🧠 Key Technical Concepts
-
-- **Canvas smoothing & scaling:** uses device pixel ratio for crisp lines.  
-- **Batched strokes:** segments grouped by `strokeId`, finalized once per stroke.  
-- **Server-authoritative log:** keeps consistent history across users.  
-- **Reconstructable state:** new clients replay all active ops.  
-- **Undo/Redo:** per-user toggle of `active` flag in the operation log.
-
----
-
-## 🌐 Deployment
-
-Once tested locally, deploy easily using **Render** or **Railway**:
-
-1. Push this code to a **GitHub repo**.  
-2. Go to [https://render.com](https://render.com).  
-3. Create a **New Web Service** → Connect your GitHub repo.  
-4. Set:
-   - **Build Command:** `npm install`
-   - **Start Command:** `npm start`
-   - **Environment:** Node 18+
-5. Deploy and wait ~1–2 minutes.  
-6. Open your live URL (e.g., `https://collaborative-canvas.onrender.com`).
-
-Your deployed link is now ready for the submission demo.
+- **Frontend:** Vanilla JavaScript, HTML5 Canvas, Socket.io client  
+- **Backend:** Node.js, Express, Socket.io  
+- **Deployment:** Render (Node 22, Express static server)  
 
 ---
 
@@ -149,11 +113,5 @@ Your deployed link is now ready for the submission demo.
 
 **Name:** Tagore Reddy  
 **Email:** tagorepasham@gmail.com  
-**Tech Stack:** Node.js, Vanilla JS, Socket.io, HTML5 Canvas  
-**Submission Type:** Real-time Collaborative Drawing App Assignment  
-
----
-
-## 🧾 License
-
-This project is for educational and evaluation purposes.
+**GitHub:** [https://github.com/tagore19](https://github.com/tagore19)  
+**Project:** Real-Time Collaborative Drawing Canvas Assignment

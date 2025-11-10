@@ -1,160 +1,127 @@
 # ARCHITECTURE.md
 
-## Project
-**Collaborative Canvas** — real-time multi-user drawing app using HTML5 Canvas (vanilla JS) + Node.js + Socket.io.
+## Project Overview
+
+**Collaborative Canvas** — real-time collaborative drawing using HTML5 Canvas + Node.js + Socket.io.  
+Allows multiple users to draw together, with synchronized updates, undo/redo, and a global clear function.
 
 ---
 
-## Goals (short)
-- Real-time synchronized freehand drawing across multiple clients.
-- Server-authoritative operation log for replay and global undo/redo.
-- Low-latency UX: immediate local rendering + server finalization.
-- Minimal dependencies, plain DOM + Canvas API, no drawing libraries.
+## ⚙️ Core Architecture
+
+### **Client-Side Components**
+- **canvas.js** — Manages drawing logic and canvas rendering.  
+- **websocket.js** — Handles socket connection, real-time events, and global undo/redo/clear actions.  
+- **main.js** — UI controls: color, brush size, eraser, undo, redo, clear.  
+
+### **Server-Side Components**
+- **server.js** — Node.js + Express + Socket.io server.  
+  - Manages user connections and broadcasts drawing events.  
+  - Maintains an in-memory list of all operations (`operations[]`).  
+  - Handles Undo, Redo, Clear, and synchronization logic.
 
 ---
 
-## High-level components
-- **Client**
-  - `index.html`, `style.css` — UI and toolbar.
-  - `canvas.js` — drawing engine, DPR handling, local snapshots, replay helpers.
-  - `websocket.js` — socket client: send strokes, receive ops/cursors, manage presence.
-  - `main.js` — toolbar wiring.
-- **Server**
-  - `server/server.js` — Express static server + Socket.io; stores global op log and handles undo/redo.
-- **Runtime**
-  - Node process hosts server; clients connect via Socket.io.
+## 📊 Data Flow Diagram
+
+1. **User draws a stroke** → client emits `stroke` with normalized coordinates.  
+2. **Server receives stroke** → buffers segments and emits `op_seg` for live preview.  
+3. **On stroke end**, server finalizes the stroke → appends to `operations[]` → emits `op_add` to all clients.  
+4. **Clients replay** all active operations to reconstruct the canvas.  
+5. **Undo/Redo:** server toggles `active` flag and broadcasts changes → clients replay active ops.  
+6. **Clear:** one user emits `clear` → server empties `operations[]` → broadcasts `clear` → all clients clear canvas.
 
 ---
 
-## Data Flow (step-by-step)
-1. **Local stroke creation (Client)**
-   - Pointerdown → begin stroke; client generates a `strokeId`.
-   - Pointermove → client draws segments immediately on local canvas.
-   - Sends packets: `{ points, meta:{color,size,eraser}, strokeId, isFinal:false }`
-   - On pointerup → final packet `{ isFinal:true }`.
+## 🧩 WebSocket Events
 
-2. **Server-side buffering & finalization**
-   - Buffers incoming stroke segments in `pendingStrokes[strokeId]`.
-   - On final packet, combines into one op:
-     ```js
-     { id: uuid, userId, type: 'stroke', data: { points, color, size, eraser }, active: true, timestamp }
-     ```
-   - Appends to `operations[]`, broadcasts `op_add` to all clients.
-
-3. **Client replay & preview**
-   - Clients apply incoming ops via `drawOperation()`.
-   - Transient `op_seg` messages provide live preview while drawing.
-   - New clients on connect receive full replay (`welcome` message).
-
-4. **Global Undo/Redo**
-   - `undo` → server marks last active op by that user as inactive.
-   - `redo` → reactivates most recent inactive op by that user.
-   - Clients replay active ops in order for consistency.
-
-5. **Cursor / Presence**
-   - Clients send throttled cursor positions.
-   - Server rebroadcasts to others; clients draw overlay dots.
+| Direction | Event | Description |
+|------------|--------|-------------|
+| C → S | `stroke` | Send stroke segment or final stroke data |
+| C → S | `undo` / `redo` | Request undo/redo of user's stroke |
+| C → S | `clear` | Request global clear |
+| C → S | `cursor` | Send normalized cursor position |
+| S → C | `welcome` | Initial sync: user ID, color, existing strokes |
+| S → C | `op_add` | Append finalized stroke |
+| S → C | `op_seg` | Show live stroke preview |
+| S → C | `op_undo` / `op_redo` | Update canvas for undo/redo |
+| S → C | `clear` | Global clear broadcast |
+| S → C | `cursor` | Cursor position updates |
 
 ---
 
-## WebSocket Protocol (summary)
+## 🔁 Undo/Redo Strategy
 
-### Client → Server
-- `stroke` — `{ points[], meta, strokeId?, isFinal? }`
-- `undo`, `redo`
-- `cursor` — `{ x:0..1, y:0..1 }`
+- **Operation-based (LIFO per user)**  
+Each user can undo their own last active operation.  
+The server sets `op.active = false` (undo) or `true` (redo).  
+Clients rebuild the canvas by replaying all active operations.
 
-### Server → Client
-- `welcome` — `{ id, color, operations: [active ops] }`
-- `user-join`, `user-left`
-- `op_add`, `op_seg`, `op_undo`, `op_redo`, `cursor`
-
----
-
-## Undo/Redo Strategy
-
-- **Per-user LIFO semantics**: Each user can undo/redo their own strokes.
-- Server keeps `operations[]` with `active` flag per op.
-- Undo = mark last active op inactive → broadcast.
-- Redo = re-enable last inactive op for that user.
-- Clients clear canvas and replay all `active` ops for consistent view.
+- **Why not global undo?**  
+Simpler conflict resolution and predictable results per user.  
+All clients remain consistent because the server is authoritative.
 
 ---
 
-## Conflict Resolution
+## 💥 Conflict Resolution
 
-### Problems
-- Simultaneous drawings in overlapping regions.
-- Multiple undos/redos across users.
+### Conflicts:
+- Overlapping strokes from different users.
+- Concurrent undo/redo actions.
 
-### Solution
-- Server log is **append-only**: last operation drawn always wins.
-- Undo/Redo scoped per user (no shared-history conflicts).
-- Replaying operations deterministically guarantees identical results for all clients.
-
----
-
-## Performance Decisions
-
-- **Local drawing prediction**: draw locally for zero-lag experience.
-- **Batched strokes**: one op per stroke, not per segment.
-- **Normalized coordinates**: scale-independent data, low bandwidth.
-- **Replay strategy**: simple clear + replay approach (fine for <1000 ops).
-- **Cursor throttling**: limits to ~20Hz updates.
+### Strategy:
+- Server orders operations chronologically; last operation overwrites earlier pixels.  
+- Undo only affects the requesting user's operations.  
+- Global Clear removes all operations and resets state.
 
 ---
 
-## Known Limitations
+## ⚙️ Performance Decisions
 
-- In-memory op log (lost on server restart).
-- No authentication or rate limiting.
-- Undo/Redo clears and replays all strokes (O(n) per op).
-- Not optimized for >100 concurrent users.
-- No persistence; add DB for production.
-
----
-
-## Scaling Notes
-
-- Store ops per room → enables isolated canvases.
-- Persist ops to DB for durability.
-- Implement snapshotting every N ops to reduce replay cost.
-- Add message compression and binary transport for heavy loads.
+- **Local rendering prediction:** smooth UX despite network delay.  
+- **Normalized coordinates (0–1):** ensures consistent scaling on all screen sizes.  
+- **Batched strokes:** server batches per `strokeId` instead of per point.  
+- **Global Clear:** one event resets everything; avoids expensive loops.  
+- **Replay simplicity:** clearing + redrawing all active ops ensures consistency.
 
 ---
 
-## Architecture Diagram (textual)
+## 🧱 Scaling & Persistence
 
-```
-Client (CanvasApp)
-  │
-  ├─ pointer events → local draw + emit "stroke"
-  │
-  ▼
-Server (Socket.io)
-  ├─ Buffer segments → finalize op → broadcast "op_add"
-  ├─ Handle "undo"/"redo" → toggle op.active → broadcast updates
-  └─ Track active users, cursors
-  │
-  ▼
-All Clients
-  ├─ Update ops list
-  ├─ Clear & replay active ops for consistency
-  └─ Render cursors
-```
+For production scaling:
+- Use a database (MongoDB/PostgreSQL) to persist `operations`.  
+- Add room support via Socket.io namespaces.  
+- Implement snapshots every N operations for faster replay.  
+- Add authentication and user names.  
 
 ---
 
-## Testing Checklist
+## 🧠 Design Summary
 
-1. Run `npm run dev`
-2. Open 2+ browser tabs → draw → confirm live sync.
-3. Undo/Redo → full-stroke changes reflected globally.
-4. Open third tab → correct replay of previous drawings.
-5. Cursor dots visible for all users.
+The architecture balances **simplicity** and **deterministic consistency**.  
+All clients replay the same sequence of operations from the server, guaranteeing identical canvases.  
+Undo/Redo and Clear remain conflict-free through server authority.
 
 ---
 
-## Design Summary
+## ✅ Deployment Info
 
-The system implements a **real-time CRDT-lite approach** where all actions (strokes) are commutative and replayable. Undo/Redo work by toggling inclusion in the replay list. This keeps architecture simple, deterministic, and robust against latency or order issues.
+- Platform: **Render** (Node.js 22 runtime)  
+- Build Command: `npm install`  
+- Start Command: `npm start`  
+- Health Check Path: `/` (serves `index.html`)  
+- Auto binds to `process.env.PORT` for compatibility.
+
+---
+
+## 🔗 Links
+
+- **Live Demo:** [https://collaborative-canvas-l5jt.onrender.com](https://collaborative-canvas-l5jt.onrender.com)  
+- **GitHub:** [https://github.com/tagore19/collaborative-canvas](https://github.com/tagore19/collaborative-canvas)
+
+---
+
+## 🧑‍💻 Author
+**Name:** Tagore Reddy  
+**Email:** tagorepasham@gmail.com  
+**GitHub:** [https://github.com/tagore19](https://github.com/tagore19)
