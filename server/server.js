@@ -12,6 +12,11 @@ const io = new Server(server);
 // serve static files from client/
 app.use(express.static(path.join(__dirname, "../client")));
 
+// fallback route to serve index.html for health checks and root access
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/index.html'));
+});
+
 // simple in-memory user map (socketId -> { color, name })
 const users = {};
 const operations = []; // global op log
@@ -124,7 +129,7 @@ io.on("connection", (socket) => {
   });
 });
 
-// IMPORTANT: use render's provided port
+// IMPORTANT: use platform-provided port and bind to all interfaces
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
